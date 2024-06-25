@@ -1,0 +1,62 @@
+import pandas as pd
+import numpy as np
+from scipy.sparse import csr_matrix
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import NMF
+
+# Load the user-item interaction data
+ratings = pd.read_csv('ratings.csv')
+
+# Create a sparse matrix of user-item interactions
+user_item_matrix = csr_matrix((ratings['rating'], (ratings['user_id'], ratings['item_id'])))
+
+# Compute the similarity matrix using cosine similarity
+similarity_matrix = cosine_similarity(user_item_matrix, user_item_matrix)
+
+# Define a function to get the top N recommended items for a user
+def get_recommendations(user_id, N):
+    # Get the user's ratings
+    user_ratings = user_item_matrix[user_id]
+
+    # Compute the similarity between the user and all other users
+    similarities = similarity_matrix[user_id]
+
+    # Get the top N similar users
+    top_similar_users = np.argsort(-similarities)[:N]
+
+    # Get the items rated by the top similar users
+    items_rated_by_similar_users = user_item_matrix[top_similar_users]
+
+    # Compute the weighted average of the ratings
+    weighted_ratings = np.dot(items_rated_by_similar_users, similarities[top_similar_users])
+
+    # Get the top N recommended items
+    recommended_items = np.argsort(-weighted_ratings)[:N]
+
+    return recommended_items
+
+# Define a function to get the top N recommended items for a user using matrix factorization
+def get_recommendations_mf(user_id, N):
+    # Get the user's latent factors
+    user_factors = nmf_model.components_[user_id]
+
+    # Compute the similarity between the user and all items
+    item_similarities = np.dot(nmf_model.components_.T, user_factors)
+
+    # Get the top N recommended items
+    recommended_items = np.argsort(-item_similarities)[:N]
+
+    return recommended_items
+
+# Train a non-negative matrix factorization (NMF) model
+nmf_model = NMF(n_components=10, init='nndsvd', random_state=0)
+nmf_model.fit(user_item_matrix)
+
+# Test the recommendation system
+user_id = 1
+N = 10
+recommended_items = get_recommendations(user_id, N)
+print("Recommended items for user", user_id, ":", recommended_items)
+
+recommended_items_mf = get_recommendations_mf(user_id, N)
+print("Recommended items for user", user_id, "using matrix factorization:", recommended_items_mf)
